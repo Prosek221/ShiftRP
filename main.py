@@ -121,5 +121,6 @@ async def sprawdz_auto(interaction: discord.Interaction, tablice: str):
     embed.set_image(url=auto["zdjecia"][0])  # pokazujemy pierwsze zdjęcie z listy
     await interaction.response.send_message(embed=embed)
 
-bot.run("MTQwMjU4ODIyOTg3MzcwMDkyNQ.GrxPnn.BkbbK7umZtd05_NF8C0R_WB3J3WkNNKNOtR2OY")
+bot.run(DISCORD-TOKEN)
+
 
