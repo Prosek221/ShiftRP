@@ -4,22 +4,20 @@ from discord import app_commands
 from pymongo import MongoClient
 import os
 
-# Pobierz token i URI bazy z zmiennych środowiskowych
+# Pobierz token bota, URI Mongo i guild ID ze zmiennych środowiskowych
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 MONGO_URI = os.getenv("MONGO_URI")
+GUILD_ID = int(os.getenv("GUILD_ID"))
 
 # Połączenie z MongoDB
 client = MongoClient(MONGO_URI)
-db = client['erlc_database']  # nazwa bazy
+db = client['erlc_database']  
 dowody_col = db['dowody']
 auta_col = db['auta']
 
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
-
-# Zdefiniuj GUILD_ID, żeby komendy slash działały szybciej w testach
-GUILD_ID = 1402608876356112404  # <- tutaj wpisz ID swojego serwera (int)
 
 @bot.event
 async def on_ready():
@@ -28,9 +26,9 @@ async def on_ready():
         synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
         print(f'Synced {len(synced)} command(s)')
     except Exception as e:
-        print(e)
+        print(f'Błąd synchronizacji: {e}')
 
-# Komenda do wyrabiania dowodu
+# Komenda: wyrób dowód
 @bot.tree.command(name="wyrób-dowód", description="Wyrob dowód osobisty", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(
     nick_roblox="Nick Roblox",
@@ -40,12 +38,9 @@ async def on_ready():
     zdjecie_url="Link do zdjęcia"
 )
 async def wyrob_dowod(interaction: discord.Interaction, nick_roblox: str, imie: str, wiek: int, pochodzenie: str, zdjecie_url: str):
-    # Sprawdź, czy dowód już istnieje
     if dowody_col.find_one({"nick_roblox": nick_roblox}):
         await interaction.response.send_message("Ten gracz ma już wyrobiony dowód!", ephemeral=True)
         return
-
-    # Wstaw do bazy
     dowody_col.insert_one({
         "nick_roblox": nick_roblox,
         "imie": imie,
@@ -55,20 +50,19 @@ async def wyrob_dowod(interaction: discord.Interaction, nick_roblox: str, imie: 
     })
     await interaction.response.send_message(f'Dowód wyrobiony dla {nick_roblox}!')
 
-# Komenda do rejestracji auta
+# Komenda: rejestracja auta
 @bot.tree.command(name="rejestracja-auta", description="Zarejestruj auto", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(
     marka="Marka auta",
     model="Model auta",
     wlasciciel="Imię i nazwisko właściciela",
     tablice="Tablice rejestracyjne",
-    zdjecie1="Link do zdjęcia przodu auta",
-    zdjecie2="Link do zdjęcia tyłu auta",
-    zdjecie3="Link do zdjęcia lewego boku auta",
-    zdjecie4="Link do zdjęcia prawego boku auta"
+    zdjecie1="Zdjęcie przodu auta (link)",
+    zdjecie2="Zdjęcie tyłu auta (link)",
+    zdjecie3="Zdjęcie lewego boku auta (link)",
+    zdjecie4="Zdjęcie prawego boku auta (link)"
 )
 async def rejestracja_auta(interaction: discord.Interaction, marka: str, model: str, wlasciciel: str, tablice: str, zdjecie1: str, zdjecie2: str, zdjecie3: str, zdjecie4: str):
-    # Każdy może zarejestrować wiele aut, więc nie blokujemy duplikatów
     auta_col.insert_one({
         "marka": marka,
         "model": model,
@@ -78,7 +72,7 @@ async def rejestracja_auta(interaction: discord.Interaction, marka: str, model: 
     })
     await interaction.response.send_message(f'Auto {marka} {model} zarejestrowane!')
 
-# Komenda do wyszukiwania dowodu po nicku Roblox
+# Komenda: sprawdź dowód
 @bot.tree.command(name="sprawdź-dowód", description="Sprawdź dowód po nicku Roblox", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(nick_roblox="Nick Roblox")
 async def sprawdz_dowod(interaction: discord.Interaction, nick_roblox: str):
@@ -86,16 +80,14 @@ async def sprawdz_dowod(interaction: discord.Interaction, nick_roblox: str):
     if not dowod:
         await interaction.response.send_message("Nie znaleziono dowodu dla tego nicku.", ephemeral=True)
         return
-
     embed = discord.Embed(title=f"Dowód osobisty: {dowod['nick_roblox']}", color=discord.Color.blue())
     embed.add_field(name="Imię", value=dowod["imie"], inline=True)
     embed.add_field(name="Wiek", value=dowod["wiek"], inline=True)
     embed.add_field(name="Pochodzenie", value=dowod["pochodzenie"], inline=True)
     embed.set_image(url=dowod["zdjecie_url"])
-
     await interaction.response.send_message(embed=embed)
 
-# Komenda do usuwania dowodu (np. admin)
+# Komenda: usuń dowód
 @bot.tree.command(name="usuń-dowód", description="Usuń dowód z bazy", guild=discord.Object(id=GUILD_ID))
 @app_commands.describe(nick_roblox="Nick Roblox")
 async def usun_dowod(interaction: discord.Interaction, nick_roblox: str):
@@ -105,7 +97,28 @@ async def usun_dowod(interaction: discord.Interaction, nick_roblox: str):
     else:
         await interaction.response.send_message(f"Dowód dla {nick_roblox} został usunięty.")
 
-# Analogicznie można dodać komendy do usuwania aut, listowania itp.
+# Komenda: usuń auto
+@bot.tree.command(name="usuń-auto", description="Usuń auto z bazy", guild=discord.Object(id=GUILD_ID))
+@app_commands.describe(tablice="Tablice rejestracyjne auta")
+async def usun_auto(interaction: discord.Interaction, tablice: str):
+    result = auta_col.delete_one({"tablice": tablice})
+    if result.deleted_count == 0:
+        await interaction.response.send_message("Nie znaleziono auta z takimi tablicami.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Auto z tablicami {tablice} zostało usunięte.")
 
-bot.run(DISCORD_TOKEN)
+# Komenda: sprawdź auto
+@bot.tree.command(name="sprawdź-auto", description="Sprawdź auto po tablicach rejestracyjnych", guild=discord.Object(id=GUILD_ID))
+@app_commands.describe(tablice="Tablice rejestracyjne auta")
+async def sprawdz_auto(interaction: discord.Interaction, tablice: str):
+    auto = auta_col.find_one({"tablice": tablice})
+    if not auto:
+        await interaction.response.send_message("Nie znaleziono auta z takimi tablicami.", ephemeral=True)
+        return
+    embed = discord.Embed(title=f"AUTO: {auto['marka']} {auto['model']}", color=discord.Color.green())
+    embed.add_field(name="Właściciel", value=auto["wlasciciel"], inline=True)
+    embed.add_field(name="Tablice", value=auto["tablice"], inline=True)
+    embed.set_image(url=auto["zdjecia"][0])  # pokazujemy pierwsze zdjęcie z listy
+    await interaction.response.send_message(embed=embed)
 
+bot.run(MTQwMjU4ODIyOTg3MzcwMDkyNQ.GrxPnn.BkbbK7umZtd05_NF8C0R_WB3J3WkNNKNOtR2OY)
