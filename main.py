@@ -19,7 +19,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # Zdefiniuj GUILD_ID, żeby komendy slash działały szybciej w testach
-GUILD_ID = YOUR_GUILD_ID_HERE  # <- tutaj wpisz ID swojego serwera (int)
+GUILD_ID = 1402608876356112404  # <- tutaj wpisz ID swojego serwera (int)
 
 @bot.event
 async def on_ready():
@@ -108,3 +108,4 @@ async def usun_dowod(interaction: discord.Interaction, nick_roblox: str):
 # Analogicznie można dodać komendy do usuwania aut, listowania itp.
 
 bot.run(DISCORD_TOKEN)
+
